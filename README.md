@@ -1,2 +1,3 @@
 # Chilean
-Triggering system
+
+爱走的数据库触发系统。通过监控oplog，发送相应的事件或消息。
