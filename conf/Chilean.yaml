@@ -1,0 +1,5 @@
+application: Chilean
+version: "1.0"
+
+include:
+  - "*.yaml"
