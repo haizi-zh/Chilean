@@ -1,21 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from utils import serialize
+
 
 
 class BaseWatcher(object):
     """
     Base Watcher inherited by both op-log watcher and message_watcher
     """
-    def __init__(self, name='', queue=None):
+    def __init__(self, name='', queue=None) :
         self.msg_queue = queue
         self.name = name
 
-    def send_message(self, message):
+    def send_message(self, message,listeners):
         # TODO condition: queue is full
         temp_obj = {'name': self.name, 'msg': message}
-        self.msg_queue.put(serialize(temp_obj))
+        self.msg_queue.put(temp_obj,listeners)
+        #self.msg_queue.put(temp_obj)
+
 
     def get_name(self):
         return self.name

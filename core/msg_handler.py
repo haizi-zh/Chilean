@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 from core.abstract_class import AbstractSubject
-from Queue import Queue
 from utils import deserialize
 import os
 import logging
 from core import PROCESSOR_WATCHER, OPLOG_WATCHER
+from core.enqueue import Enqueue
 
 
 class MsgHandler(AbstractSubject):
@@ -16,9 +16,11 @@ class MsgHandler(AbstractSubject):
     def __init__(self, msg_size=0, listener={}):
         self.listener = listener
         self.process_path = os.path.normpath(os.path.join(os.path.dirname(__file__), os.pardir, 'processor'))
-        self.msg_queue = Queue(maxsize=msg_size)
+        #self.msg_queue = Queue(maxsize=msg_size)
+        self.msg_queue = None
         self.file_cls_map = {}  # file和processor的映射，一个file包含多个processor
         self.listener_init()
+
 
     def deregister(self, filename):
         try:
@@ -58,10 +60,11 @@ class MsgHandler(AbstractSubject):
     def process_msg(self):
         print 'begin'
         while True:
-            msg = self.msg_queue.get(block=True)
+            msg = self.msg_queue.get()
             self.process(deserialize(msg))
 
     def get_msg_queue(self):
+        self.msg_queue = Enqueue()
         return self.msg_queue
 
     def listener_init(self):
@@ -71,6 +74,9 @@ class MsgHandler(AbstractSubject):
         target_file = map(lambda x: x.split('.')[0], filter(lambda x: (not isinstance(re.search('.py$', x), types.NoneType) and x != '__init__.py'), file_list))
         for filename in target_file:
             self.register(filename)
+
+    def get_listeners(self):
+        return self.listener
 
     def register(self, filename):
         import types
