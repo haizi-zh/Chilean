@@ -30,14 +30,14 @@ def main():
     worker_op_log = Thread(target=op_log_watcher.op_info_generator)
     msg_handler_thread = Thread(target=msg_handler.process_msg)
 
-    worker_op_log.start()
-    msg_handler_thread.start()
+    worker_op_log.start()      #打开一个线程,监控oplog的消息产生
+    msg_handler_thread.start() # 打开一个线程,等待（block）注册或处理事件
 
     # msg_handler.process_msg() # wrong, should use thread
     event_handler = ProcessorWatcher(queue=msg_queue)
     observer = Observer()
     observer.schedule(event_handler, event_handler.path, recursive=True)
-    observer.start()
+    observer.start() #监控processor中文件的变化
 
 if __name__ == '__main__':
     main()
