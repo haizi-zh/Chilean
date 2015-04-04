@@ -36,4 +36,4 @@ class PoiProcess(BaseProcessor):
                 pass
             if 'u' == op and mid is not None:
                 if mid == '5492d06fe721e7171745e160':
-                    print '=======success======='
+                    print '=======success  ======='

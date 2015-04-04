@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from utils import serialize
 
 
 
@@ -12,10 +13,10 @@ class BaseWatcher(object):
         self.msg_queue = queue
         self.name = name
 
-    def send_message(self, message,listeners):
+    def send_message(self, message):
         # TODO condition: queue is full
         temp_obj = {'name': self.name, 'msg': message}
-        self.msg_queue.put(temp_obj,listeners)
+        self.msg_queue.put(serialize(temp_obj))
         #self.msg_queue.put(temp_obj)
 
 

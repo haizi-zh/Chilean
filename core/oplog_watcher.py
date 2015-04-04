@@ -7,7 +7,7 @@ from pymongo.errors import AutoReconnect
 from utils.database import get_mongodb
 from abstract_class import BaseWatcher
 from core import OPLOG_WATCHER
-from core.msg_handler import MsgHandler
+
 
 
 class OplogWatcher(BaseWatcher):
@@ -50,8 +50,7 @@ class OplogWatcher(BaseWatcher):
                         # 更新时间，用于意外重启后直接查找
                         ts = op['ts']
                         # 消息写入队列
-                        listeners = MsgHandler.get_listeners()
-                        self.send_message(op,listeners)
+                        self.send_message(op)
                     if not cursor.alive:
                         break
             except AutoReconnect:
