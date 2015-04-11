@@ -4,6 +4,7 @@
 
 from core.abstract_class import BaseProcessor
 
+
 class Example(BaseProcessor):
     name = 'example'
     def __init__(self):
