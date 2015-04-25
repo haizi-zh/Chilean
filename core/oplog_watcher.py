@@ -10,7 +10,7 @@ from utils.database import get_mongodb
 from abstract_class import BaseWatcher
 from pymongo.cursor import _QUERY_OPTIONS
 from core import OPLOG_WATCHER
-from utils import serialize
+from utils import serialize,load_yaml
 import pika
 import bson
 
@@ -22,7 +22,12 @@ class OplogWatcher(BaseWatcher):
 
     def __init__(self, name=OPLOG_WATCHER, profile=None, queue=None, connection=None):
         BaseWatcher.__init__(self, name=name)
-
+        self.conf_all = load_yaml()
+        self.profile=self.conf_all['midware'] if 'midware' in self.conf_all else {}
+        self.host = self.profile['server']['host']
+        self.port=self.profile['server']['port']
+        self.user = self.profile['auth']['user']
+        self.password = self.profile['auth']['passwd']
         # if collection is not None:
         # if db is None:
         # raise ValueError('must specify db if you specify a collection')
@@ -32,12 +37,19 @@ class OplogWatcher(BaseWatcher):
         # else:
         #     self._ns_filter = None
 
+
         self.connection = connection or get_mongodb(profile=profile)
+
 
 
     def send_message(self, message):
         temp_obj = {'name': self.name, 'msg': message}
-        connection = pika.BlockingConnection(pika.ConnectionParameters('119.254.100.93'))
+        credentials = pika.PlainCredentials(self.user, self.password)
+        parameters = pika.ConnectionParameters(self.host,
+                                       self.port,
+                                       '/',
+                                       credentials)
+        connection = pika.BlockingConnection(parameters=parameters)
         channel = connection.channel()
         channel.exchange_declare(exchange='trigger_exch', type='fanout')
         channel.basic_publish(exchange='trigger_exch',
@@ -46,8 +58,8 @@ class OplogWatcher(BaseWatcher):
                 delivery_mode=2,  # make message persistent
             ))
         connection.close()
-        print serialize(temp_obj)
-        print 'be sent'
+        #print serialize(temp_obj)
+        #print 'be sent'
 
     def op_info_generator(self):  # oplog抓取
         """
@@ -55,7 +67,7 @@ class OplogWatcher(BaseWatcher):
         """
         oplog = self.connection['local']['oplog.rs']
         last_oplog_ts = oplog.find().sort('$natural', -1)[0]['ts']
-        print last_oplog_ts
+        #print last_oplog_ts
         # a = bson.Timestamp(1429113600, 1)  # 4.16
         #b = bson.Timestamp(1427817600, 1)  # 4.1
 
@@ -65,8 +77,6 @@ class OplogWatcher(BaseWatcher):
 
         #for op in cursor:
         #    print op
-
-
         _SLEEP = 10
         while True:
             query = {'ts': {'$gt': last_oplog_ts}}
@@ -79,7 +89,7 @@ class OplogWatcher(BaseWatcher):
                     try:
                         for op in cursor:
                             # 写消息队列
-                            #print op
+                            print op
                             self.send_message(op)
                             last_oplog_ts = op['ts']
                     except (AutoReconnect, StopIteration):  # StopIteration是在循环对象穷尽所有元素时的异常

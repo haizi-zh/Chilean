@@ -3,7 +3,7 @@
 from threading import Thread
 
 from core.oplog_watcher import OplogWatcher
-from core.trigger import Trigger
+#from core.trigger import Trigger
 from utils import serialize
 from utils import deserialize
 
