@@ -23,11 +23,11 @@ class OplogWatcher(BaseWatcher):
     def __init__(self, name=OPLOG_WATCHER, profile=None, queue=None, connection=None):
         BaseWatcher.__init__(self, name=name)
         self.conf_all = load_yaml()
-        self.profile=self.conf_all['midware'] if 'midware' in self.conf_all else {}
-        self.host = self.profile['server']['host']
-        self.port=self.profile['server']['port']
-        self.user = self.profile['auth']['user']
-        self.password = self.profile['auth']['passwd']
+        rbmq_profile=self.conf_all['midware'] if 'midware' in self.conf_all else {}
+        self.host = rbmq_profile['server']['host']
+        self.port=rbmq_profile['server']['port']
+        self.user = rbmq_profile['auth']['user']
+        self.password = rbmq_profile['auth']['passwd']
         # if collection is not None:
         # if db is None:
         # raise ValueError('must specify db if you specify a collection')
@@ -67,7 +67,7 @@ class OplogWatcher(BaseWatcher):
         """
         oplog = self.connection['local']['oplog.rs']
         last_oplog_ts = oplog.find().sort('$natural', -1)[0]['ts']
-        #print last_oplog_ts
+        print last_oplog_ts
         # a = bson.Timestamp(1429113600, 1)  # 4.16
         #b = bson.Timestamp(1427817600, 1)  # 4.1
 

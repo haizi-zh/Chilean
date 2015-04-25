@@ -3,52 +3,69 @@ __author__ = 'bxm'
 
 import logging
 import pika
-from utils import deserialize, load_yaml
 from utils.database import get_mongodb
 from core.abstract_class import BaseTrigger
 
 
 class Trigger(BaseTrigger):
     def __init__(self):
+        from utils import load_yaml
+
         self.conf_all = load_yaml()
-        self.profile=self.conf_all['midware'] if 'midware' in self.conf_all else {}
-        self.host = self.profile['server']['host']
-        self.port=self.profile['server']['port']
-        self.user = self.profile['auth']['user']
-        self.password = self.profile['auth']['passwd']
-
-
+        profile = self.conf_all['midware'] if 'midware' in self.conf_all else {}
+        self.host = profile['server']['host']
+        self.port = profile['server']['port']
+        self.user = profile['auth']['user']
+        self.password = profile['auth']['passwd']
+        self.db_correspond = self.conf_all['correspond'] if 'correspond' in self.conf_all else {}
 
     def check_message(self, message):
         """
         核对该消息是否需要触发MongoDB数据库的更新,返回消息需要触发的数据库集合
         """
-        print message
-        try:
-            if message['msg']['op'] != 'u':
-                print 'not update'
-                return None
-            ns = message['msg']['ns']
-        except AttributeError:
-            logging.info('message is invalid')
+        ns = message['msg']['ns'] if message['msg']['op'] == 'u' else None
+        doc = message['msg']['o']
+        tmp_dbs = self.db_correspond[ns] if ns and ns in self.db_correspond else None
+        if not tmp_dbs:
             return None
-        db_correspond = self.conf_all['correspond'] if 'correspond' in self.conf_all else {}
-        trig_dbs = None
-        for key in db_correspond:
-            if key == ns:
-                trig_dbs = db_correspond[key]
-                break
-        print 'update', trig_dbs
+        trig_dbs = {}
+        for key in tmp_dbs:
+            attr_correspond = filter(lambda x: True if x.keys()[0] in doc.keys() else False, tmp_dbs[key][0:])
+            if len(attr_correspond) > 1:
+                trig_dbs[key] = attr_correspond
+        print trig_dbs
         return trig_dbs
 
 
-    def process_message(self):
 
+        # print message
+        # try:
+        # if message['msg']['op'] != 'u':
+        #         print 'not update operation'
+        #         return None
+        #     ns = message['msg']['ns']
+        # except AttributeError:
+        #     logging.info('message is invalid')
+        #     return None
+        # db_correspond = self.conf_all['correspond'] if 'correspond' in self.conf_all else {}
+        # trig_dbs = None
+        #
+        # return db_correspond[ns] if ns in db_correspond else None
+        #
+        #
+        # for key in db_correspond:
+        #     if key == ns:
+        #         trig_dbs = db_correspond[key]
+        #         break
+        #print 'update operation:', trig_dbs
+        # return trig_dbs
+
+    def process_message(self):
         credentials = pika.PlainCredentials(self.user, self.password)
         parameters = pika.ConnectionParameters(self.host,
-                                       self.port,
-                                       '/',
-                                       credentials)
+                                               self.port,
+                                               '/',
+                                               credentials)
         connection = pika.BlockingConnection(parameters=parameters)
         channel = connection.channel()
         channel.exchange_declare(exchange='trigger_exch', type='fanout')
@@ -59,16 +76,18 @@ class Trigger(BaseTrigger):
 
         def callback(ch, method, properties, body):
             try:
+                from utils import deserialize
+
                 msg = deserialize(body)
                 # 消息需要触发的数据库集合
-                # {'poi.ViewSpot.county': ['_id', 'enName', 'zhName'], 'geo.Locality.county': ['_id', 'code']}
+                # 如{'poi.ViewSpot.county': ['_id', 'enName', 'zhName'], 'geo.Locality.county': ['_id', 'code']}
                 trig_dbs = self.check_message(msg)
                 if trig_dbs:
                     # 根据消息，对相应集合文档进行更新
                     self.update_data(msg, trig_dbs)
 
                 ch.basic_ack(delivery_tag=method.delivery_tag)
-                print 'be received'
+                # print 'be received'
             except KeyError:
                 print 'callback error:operation failed'
                 logging.info('callback error:operation failed')
@@ -82,25 +101,47 @@ class Trigger(BaseTrigger):
         """
         根据message，更新与其相对应的数据库
         """
-        print trig_dbs
+        # print trig_dbs
         doc = msg['msg']['o']  # 操作文档
-        #ns = msg['msg']['ns']  # 数据库.集合
+        # ns = msg['msg']['ns']  # 数据库.集合
         for key in trig_dbs:
-            tmp = key.split('.')
-            db_name = tmp[0]
-            collection_name = tmp[1]
-            update_dic = {}
-            # 如 提取poi.ViewSpot.county中county
-            prefix_attr='.'.join(tmp[2:])
-            for attr in trig_dbs[key]:
-                #内嵌文档
-                if prefix_attr:
-                    update_attr = prefix_attr+'.'+attr
-                else:
-                    update_attr=attr
-                update_dic[update_attr] = doc[attr]
+            db_collection = key.split('.')
+            db_name = db_collection[0]
+            collection_name = db_collection[1]
+            update_dic = {attr.values()[0]: doc[attr.keys()[0]] for attr in trig_dbs[key]}
+            print 'update:', update_dic
+
+            if trig_dbs[key][0].keys[0] == '_id':
+                update_id = trig_dbs[key][0].values[0]
+            else:
+                for tmp_dic in trig_dbs[key]:
+                    if tmp_dic.keys()[0] == '_id':
+                        update_id = tmp_dic['_id']
+                        break
             col = get_mongodb(db_name, collection_name, 'mongo-raw')
-            col.update({prefix_attr + '._id': update_dic[prefix_attr + '._id']}, {'$set': update_dic}, upsert=True)
+            col.update({update_id: doc['_id']}, {'$set': update_dic}, upsert=True)
+            # # 如 提取poi.ViewSpot.country中country
+            # prefix_attr = '.'.join(tmp[2:])
+            #
+            # # attr => update_attr
+            # func = lambda attr: '%s%s'%(prefix_attr+'.' if prefix_attr else '', attr)
+            #
+            # update_dic = {func(attr): doc[attr] for attr in trig_dbs[key]}
+            #
+            #
+            #
+            # for attr in trig_dbs[key]:
+            #     update_attr = '%s%s'%(prefix_attr+'.' if prefix_attr else '', attr)
+            #     #内嵌文档
+            #     if prefix_attr:
+            #         update_attr = prefix_attr + '.' + attr
+            #     else:
+            #         update_attr = attr
+            #
+            #     update_dic[update_attr] = doc[attr]
+
+
+            #col.update({prefix_attr + '._id': update_dic[prefix_attr + '._id']}, {'$set': update_dic}, upsert=True)
             # index = ns.find('.')
             #db_name = ns[:index]
             #col_name = ns[index + 1:]
