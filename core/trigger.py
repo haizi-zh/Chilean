@@ -24,16 +24,24 @@ class Trigger(BaseTrigger):
         核对该消息是否需要触发MongoDB数据库的更新,返回消息需要触发的数据库集合
         """
         ns = message['msg']['ns'] if message['msg']['op'] == 'u' else None
-        doc = message['msg']['o']
         tmp_dbs = self.db_correspond[ns] if ns and ns in self.db_correspond else None
         if not tmp_dbs:
             return None
+
+        doc = message['msg']['o']['$set'] if '$set' in message['msg']['o'] else message['msg']['o']
+        if '_id' in doc:
+            doc.pop('_id')
+        op_id = message['msg']['o2']
         trig_dbs = {}
+
         for key in tmp_dbs:
-            attr_correspond = filter(lambda x: True if x.keys()[0] in doc.keys() else False, tmp_dbs[key][0:])
-            if len(attr_correspond) > 1:
-                trig_dbs[key] = attr_correspond
-        print trig_dbs
+            # attr_correspond将不包含_id
+            attr_correspond = filter(lambda x: True if x in doc.keys() else False, tmp_dbs[key].keys())
+            if attr_correspond:
+                trig_dbs[key] = {attr_correspond[i]: tmp_dbs[key][attr_correspond[i]] for i in
+                                 range(0, len(attr_correspond))}
+                trig_dbs[key]['_id']=tmp_dbs[key]['_id']
+        print "returnTriger:",trig_dbs
         return trig_dbs
 
 
@@ -41,7 +49,7 @@ class Trigger(BaseTrigger):
         # print message
         # try:
         # if message['msg']['op'] != 'u':
-        #         print 'not update operation'
+        # print 'not update operation'
         #         return None
         #     ns = message['msg']['ns']
         # except AttributeError:
@@ -97,29 +105,37 @@ class Trigger(BaseTrigger):
         print ' [*] Waiting for messages. To exit press CTRL+C'
         channel.start_consuming()
 
-    def update_data(self, msg, trig_dbs):
+    def update_data(self, message, trig_dbs):
         """
         根据message，更新与其相对应的数据库
         """
         # print trig_dbs
-        doc = msg['msg']['o']  # 操作文档
+        doc = message['msg']['o']['$set'] if '$set' in message['msg']['o'] else message['msg']['o']
+        if '_id' in doc:
+            doc.pop('_id')  # 操作文档
+        op_id = message['msg']['o2']['_id']
         # ns = msg['msg']['ns']  # 数据库.集合
         for key in trig_dbs:
             db_collection = key.split('.')
             db_name = db_collection[0]
             collection_name = db_collection[1]
-            update_dic = {attr.values()[0]: doc[attr.keys()[0]] for attr in trig_dbs[key]}
-            print 'update:', update_dic
+            update_id=trig_dbs[key]['_id']
+            trig_dbs[key].pop('_id')
+            #update_dic = {attr.values()[0]: doc[attr.keys()[0]] for attr in trig_dbs[key]}
+            update_dic = {trig_dbs[key][attr]: doc[attr] for attr in trig_dbs[key]}
+            print update_id,':', op_id
+            print '$set:',update_dic
 
-            if trig_dbs[key][0].keys[0] == '_id':
-                update_id = trig_dbs[key][0].values[0]
-            else:
-                for tmp_dic in trig_dbs[key]:
-                    if tmp_dic.keys()[0] == '_id':
-                        update_id = tmp_dic['_id']
-                        break
+            # update_id = ''
+            # if trig_dbs[key][0].keys()[0] == '_id':
+            #     update_id = trig_dbs[key][0].values()[0]
+            # else:
+            #     for tmp_dic in trig_dbs[key]:
+            #         if tmp_dic.keys()[0] == '_id':
+            #             update_id = tmp_dic['_id']
+            #             break
             col = get_mongodb(db_name, collection_name, 'mongo-raw')
-            col.update({update_id: doc['_id']}, {'$set': update_dic}, upsert=True)
+            col.update({update_id: op_id}, {'$set': update_dic}, upsert=True, multi=True)
             # # 如 提取poi.ViewSpot.country中country
             # prefix_attr = '.'.join(tmp[2:])
             #
@@ -131,7 +147,7 @@ class Trigger(BaseTrigger):
             #
             #
             # for attr in trig_dbs[key]:
-            #     update_attr = '%s%s'%(prefix_attr+'.' if prefix_attr else '', attr)
+            # update_attr = '%s%s'%(prefix_attr+'.' if prefix_attr else '', attr)
             #     #内嵌文档
             #     if prefix_attr:
             #         update_attr = prefix_attr + '.' + attr
