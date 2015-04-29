@@ -31,7 +31,7 @@ def main():
     # trigger_thread.start()
 
     op_log_watcher = OplogWatcher(profile='mongo-raw')
-    op_log_watcher.op_info_generator()
+    op_log_watcher.start()
 
     # watcher_thread = Thread(target=op_log_watcher.op_info_generator)
     # watcher_thread.start()
