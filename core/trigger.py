@@ -138,7 +138,9 @@ class Trigger(BaseTrigger):
         # message中原始被修改文档的_id
         op_id = message['msg']['o2']['_id']
 
-        # 处理普通update,以下三种消息的处理覆盖了所有类型的数据库update
+        # 以下三种消息的处理覆盖了所有类型的数据库update
+
+        # 处理普通update,
         for key in trig_dbs['update']:
             db_name, col_name = key.split('.')[:2]
             # db_collection = key.split('.')
@@ -152,7 +154,7 @@ class Trigger(BaseTrigger):
             col = get_mongodb(db_name, col_name, 'mongo-raw')
             col.update({update_id: op_id}, {'$set': update_dic}, multi=True)
 
-        # 处理普通$set式的update
+        # 处理$set式的update
         for key in trig_dbs['set']:
             db_name, col_name = key.split('.')[:2]
             # correspond.yaml中与_id对应的内嵌文档字段
@@ -173,7 +175,7 @@ class Trigger(BaseTrigger):
             col = get_mongodb(db_name, col_name, 'mongo-raw')
             col.update({set_id: op_id}, {'$set': set_dic}, multi=True)
 
-        # 处理普通$unset式的update
+        # 处理$unset式的update
         for key in trig_dbs['unset']:
             db_name, col_name = key.split('.')[:2]
             unset_id = trig_dbs['unset'][key]['_id']

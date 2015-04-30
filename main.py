@@ -1,7 +1,6 @@
 # encoding=utf-8
 
 from threading import Thread
-
 from core.oplog_watcher import OplogWatcher
 #from core.trigger import Trigger
 from utils import serialize

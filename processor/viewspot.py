@@ -16,4 +16,6 @@ class Viewspot(BaseProcessor):
         pass
         # print self.name + 'confirm'
 
+    def filter(self,msg):
+        pass
 
