@@ -79,44 +79,44 @@ def start_process():
     queue_name = result.method.queue
 
     list_tmp = []
-    dic_tmp = {}  # processor.yaml配置文件的内容放入该字典
+    processor_obj = {}
+
     for processor_name in global_conf['processor']:
-        dic_tmp[processor_name] = conf_all[processor_name] if processor_name in conf_all else {}
-        if dic_tmp[processor_name]:
-            list_tmp = list_tmp + dic_tmp[processor_name].keys()
+        processor_class = global_conf['processor'][processor_name]
+        processor_obj[processor_name] = processor_class()
+
+        dic_tmp = conf_all[processor_name] if processor_name in conf_all else {}
+        if dic_tmp:
+            list_tmp = list_tmp + dic_tmp.keys()
+
     set_tmp = set(list_tmp)
 
-    for severity in set_tmp:
+    for r_key in set_tmp:
         channel.queue_bind(exchange='trigger_exch',
                            queue=queue_name,
-                           routing_key=severity)
+                           routing_key=r_key)
 
     def callback(ch, method, properties, body):
         try:
             from utils import deserialize
 
             msg = deserialize(body)
-            #print msg
-            ns = msg['msg']['ns']
+            # print msg
             # 迭代processor
             for processor_name in global_conf['processor']:
-                # 判断该ns类型消息是否在processor的处理范围
-                if dic_tmp[processor_name] and ns in dic_tmp[processor_name].keys():
-                    processor_class = global_conf['processor'][processor_name]
-                    processor_tmp = processor_class()
-                    # 处理该消息
-                    # filter(msg)返回消息需要触发的数据库集合
-                    # 如{'poi.ViewSpot.county': ['_id', 'enName', 'zhName'], 'geo.Locality.county': ['_id', 'code']}
-                    try:
-                        tri_tmp = processor_tmp.filter(msg)
-                        if tri_tmp:
-                            processor_tmp.update(msg, tri_tmp)
-                    except EndProcessException:  # 如果在该processor中已经确定msg处理结束，抛出该异常
-                        logging.info('The Message is processed by processor:%s! Message: %s' % (processor_name, body))
-                        break
+                processor_tmp = processor_obj[processor_name]
+                # 处理该消息
+                # filter(msg)返回消息需要触发的数据库集合
+                # 如{'poi.ViewSpot.county': ['_id', 'enName', 'zhName'], 'geo.Locality.county': ['_id', 'code']}
+                try:
+                    tri_tmp = processor_tmp.filter(msg)
+                    if tri_tmp:
+                        processor_tmp.update(msg, tri_tmp)
+                except EndProcessException:  # 如果在该processor中已经确定msg处理结束，抛出该异常
+                    logging.info('The Message is processed by processor:%s! Message: %s' % (processor_name, body))
+                    break
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except KeyError:
-            #print 'callback error:operation failed! Message: %s' % body
             logging.error('callback error:operation failed! Message: %s' % body)
 
 

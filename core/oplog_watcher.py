@@ -96,7 +96,7 @@ class OplogWatcher(BaseWatcher):
                             print op
                             self.send_message(op)
                             last_oplog_ts = op['ts']
-                    except AutoReconnect, e:  # StopIteration是在循环对象穷尽所有元素时的异常
+                    except AutoReconnect, e:
                         logging.warning(e)
                         time.sleep(_SLEEP)
                     except OperationFailure, e:
