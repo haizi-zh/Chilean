@@ -5,7 +5,6 @@ import time
 from pymongo.errors import AutoReconnect, OperationFailure
 from utils.database import get_mongodb
 from abstract_class import BaseWatcher
-from pymongo.cursor import _QUERY_OPTIONS
 from core import OPLOG_WATCHER
 import pika
 import logging
@@ -84,7 +83,10 @@ class OplogWatcher(BaseWatcher):
         _SLEEP = 10
         while True:
             query = {'ts': {'$gt': last_oplog_ts}}
+            #cursor = oplog.find(query, tailable=True)
             cursor = oplog.find(query, tailable=True)
+
+            from pymongo.cursor import _QUERY_OPTIONS
             # 对oplog查询进行优化
             cursor.add_option(_QUERY_OPTIONS['oplog_replay'])
 

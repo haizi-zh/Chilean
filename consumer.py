@@ -4,7 +4,6 @@ __author__ = 'bxm'
 from utils import load_yaml, global_conf, EndProcessException
 import os
 import imp
-import sys
 import pika
 import logging
 from core.abstract_class import BaseProcessor
@@ -116,7 +115,7 @@ def start_process():
                     logging.info('The Message is processed by processor:%s! Message: %s' % (processor_name, body))
                     break
             ch.basic_ack(delivery_tag=method.delivery_tag)
-        except KeyError:
+        except (KeyError, ValueError):
             logging.error('callback error:operation failed! Message: %s' % body)
 
 
