@@ -8,6 +8,8 @@ from bson.json_util import dumps
 from bson.json_util import loads
 
 
+global_conf = {}
+
 def load_yaml():
     """
     Load YAML-format configuration files

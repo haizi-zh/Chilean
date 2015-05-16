@@ -22,6 +22,7 @@ class Example(BaseProcessor):
         pass
 
 
-
+    def filter(self, msg):
+        pass
 
 
