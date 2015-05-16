@@ -5,6 +5,7 @@ __author__ = 'bxm'
 
 from core.abstract_class import BaseProcessor
 from utils.database import get_mongodb
+from utils import EndProcessException
 import pika
 import logging
 
@@ -16,7 +17,7 @@ class CorrespondenceProcess(BaseProcessor):
         from utils import load_yaml
 
         self.conf_all = load_yaml()
-        self.db_correspond = self.conf_all['correspond'] if 'correspond' in self.conf_all else {}
+        self.db_cor = self.conf_all['correspondence'] if 'correspondence' in self.conf_all else {}
 
     def update(self, message, trig_dbs):
         """
@@ -50,7 +51,7 @@ class CorrespondenceProcess(BaseProcessor):
         # 处理$set式的update
         for key in trig_dbs['set']:
             db_name, col_name = key.split('.')[:2]
-            # correspond.yaml中与_id对应的内嵌文档字段
+            # correspondence.yaml中与_id对应的内嵌文档字段
             set_id = trig_dbs['set'][key]['_id']
             trig_dbs['set'][key].pop('_id')
             set_dic = {}
@@ -62,12 +63,13 @@ class CorrespondenceProcess(BaseProcessor):
                     attr_t = self.match_list(attr, doc_set)
                     key_tmp = trig_dbs['set'][key][attr] + attr_t[len(attr):]
                     set_dic.setdefault(key_tmp, doc_set[attr_t])
-            # set_dic = {trig_dbs['set'][key][attr]: doc_set[attr] for attr in trig_dbs['set'][key]}
-            print set_id, ':', op_id
-            print key, ' $set:', set_dic
-            print db_name,col_name
+
+            # print set_id, ':', op_id
+            # print key, ' $set:', set_dic
+            # print db_name, col_name
             col = get_mongodb(db_name, col_name, 'mongo-raw')
             col.update({set_id: op_id}, {'$set': set_dic}, multi=True)
+            # raise EndProcessException
 
         # 处理$unset式的update
         for key in trig_dbs['unset']:
@@ -82,9 +84,7 @@ class CorrespondenceProcess(BaseProcessor):
                     attr_t = self.match_list(attr, doc_unset)
                     key_tmp = trig_dbs['unset'][key][attr] + attr_t[len(attr):]
                     unset_dic.setdefault(key_tmp, doc_unset[attr_t])
-            # unset_dic = {trig_dbs['unset'][key][attr]: doc_unset[attr] for attr in trig_dbs['unset'][key]}
-            # print unset_id, ':', op_id
-            # print key, ' $unset:', unset_dic
+            # set_dic = {trig_dbs['unset'][key][attr]: doc_set[attr] for attr in trig_dbs['unset'][key]}
             col = get_mongodb(db_name, col_name, 'mongo-raw')
             col.update({unset_id: op_id}, {'$unset': unset_dic}, multi=True)
 
@@ -95,7 +95,7 @@ class CorrespondenceProcess(BaseProcessor):
         """
 
         ns = message['msg']['ns'] if message['msg']['op'] == 'u' else None
-        tmp_dbs = self.db_correspond[ns] if ns and ns in self.db_correspond else None
+        tmp_dbs = self.db_cor[ns] if ns and ns in self.db_cor else None
         if not tmp_dbs:
             return None
 
@@ -137,3 +137,4 @@ class CorrespondenceProcess(BaseProcessor):
             if len(x) < len(element) and x + '.' == element[0:len(x) + 1]:
                 return element
         return None
+

@@ -5,7 +5,7 @@
 """
 watcher name
 """
-OPLOG_WATCHER = 'oplog'
+OPLOG_WATCHER = 'oplog_watcher'
 PROCESSOR_WATCHER = 'processor'
 
 """

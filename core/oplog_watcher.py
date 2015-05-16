@@ -2,11 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import time
-import pymongo
 from pymongo.errors import AutoReconnect, OperationFailure
 from utils.database import get_mongodb
 from abstract_class import BaseWatcher
-from pymongo.cursor import _QUERY_OPTIONS
 from core import OPLOG_WATCHER
 import pika
 import logging
@@ -33,9 +31,10 @@ class OplogWatcher(BaseWatcher):
                                                port,
                                                '/',
                                                credentials)
-        self.connection = pika.BlockingConnection(parameters=parameters)
-        self.channel = self.connection.channel()
-        self.channel.exchange_declare(exchange='trigger_exch', type='fanout')
+        connection_rbmq = pika.BlockingConnection(parameters=parameters)
+        self.channel = connection_rbmq.channel()
+        self.channel.exchange_declare(exchange='trigger_exch', type='direct')
+
 
 
         # if collection is not None:
@@ -52,12 +51,14 @@ class OplogWatcher(BaseWatcher):
     def send_message(self, message):
         temp_obj = {'name': self.name, 'msg': message}
 
+        severity = message['ns']
         from utils import serialize
+
         self.channel.basic_publish(exchange='trigger_exch',
-                              routing_key='',
+                              routing_key=severity,
                               body=serialize(temp_obj),
                               properties=pika.BasicProperties(delivery_mode=2, ))  # make message persistent
-        # connection.close()
+        # connection_rbmq.close()
         # print serialize(temp_obj)
         # print 'be sent'
 
@@ -66,6 +67,7 @@ class OplogWatcher(BaseWatcher):
         generate oplog info
         """
         oplog = self.connection['local']['oplog.rs']
+        # 最近的一条oplog记录的ts
         last_oplog_ts = oplog.find().sort('$natural', -1)[0]['ts']
 
         if last_oplog_ts:
@@ -81,7 +83,10 @@ class OplogWatcher(BaseWatcher):
         _SLEEP = 10
         while True:
             query = {'ts': {'$gt': last_oplog_ts}}
+            #cursor = oplog.find(query, tailable=True)
             cursor = oplog.find(query, tailable=True)
+
+            from pymongo.cursor import _QUERY_OPTIONS
             # 对oplog查询进行优化
             cursor.add_option(_QUERY_OPTIONS['oplog_replay'])
 
@@ -93,7 +98,7 @@ class OplogWatcher(BaseWatcher):
                             print op
                             self.send_message(op)
                             last_oplog_ts = op['ts']
-                    except AutoReconnect, e:  # StopIteration是在循环对象穷尽所有元素时的异常
+                    except AutoReconnect, e:
                         logging.warning(e)
                         time.sleep(_SLEEP)
                     except OperationFailure, e:

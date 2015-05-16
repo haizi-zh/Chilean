@@ -18,14 +18,14 @@ class Trigger(BaseTrigger):
         self.port = profile['server']['port']
         self.user = profile['auth']['user']
         self.password = profile['auth']['passwd']
-        self.db_correspond = self.conf_all['correspond'] if 'correspond' in self.conf_all else {}
+        self.db_cor = self.conf_all['correspond'] if 'correspond' in self.conf_all else {}
 
     def check_message(self, message):
         """
         核对该消息是否需要触发MongoDB数据库的更新,返回消息需要触发的数据库对应字段组成的字典；若无触发返回None
         """
         ns = message['msg']['ns'] if message['msg']['op'] == 'u' else None
-        tmp_dbs = self.db_correspond[ns] if ns and ns in self.db_correspond else None
+        tmp_dbs = self.db_cor[ns] if ns and ns in self.db_cor else None
         if not tmp_dbs:
             return None
 
@@ -77,15 +77,15 @@ class Trigger(BaseTrigger):
         # except AttributeError:
         #     logging.info('message is invalid')
         #     return None
-        # db_correspond = self.conf_all['correspond'] if 'correspond' in self.conf_all else {}
+        # db_cor = self.conf_all['correspond'] if 'correspond' in self.conf_all else {}
         # trig_dbs = None
         #
-        # return db_correspond[ns] if ns in db_correspond else None
+        # return db_cor[ns] if ns in db_cor else None
         #
         #
-        # for key in db_correspond:
+        # for key in db_cor:
         #     if key == ns:
-        #         trig_dbs = db_correspond[key]
+        #         trig_dbs = db_cor[key]
         #         break
         # print 'update operation:', trig_dbs
         # return trig_dbs
@@ -114,7 +114,7 @@ class Trigger(BaseTrigger):
                 trig_dbs = self.check_message(msg)
                 if trig_dbs:
                     # 根据消息，对相应集合文档进行更新
-                    self.update_data(msg, trig_dbs)
+                    self.update(msg, trig_dbs)
 
                 ch.basic_ack(delivery_tag=method.delivery_tag)
             except KeyError:
@@ -126,7 +126,7 @@ class Trigger(BaseTrigger):
         # print ' [*] Waiting for messages. '
         channel.start_consuming()
 
-    def update_data(self, message, trig_dbs):
+    def update(self, message, trig_dbs):
         """
         根据message，更新与其相对应的数据库的字段trig_dbs
         """

@@ -147,3 +147,6 @@ def deserialize(obj_str):
         return loads(obj_str)
     except ValueError:
         print 'input string can\'t be deserialized'
+
+class EndProcessException(Exception):
+  pass

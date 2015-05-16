@@ -51,3 +51,4 @@ class BaseTrigger(object):
     """
     def update_data(self, msg, db=None):
         raise NotImplementedError("Must subclass me")
+
