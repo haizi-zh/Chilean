@@ -41,6 +41,13 @@ class BaseProcessor(object):
     """
     Abstract Listener
     """
+    def update(self, msg):
+        raise NotImplementedError("Must subclass me")
 
+
+class BaseTrigger(object):
+    """
+    Abstract Trigger
+    """
     def update(self, msg):
         raise NotImplementedError("Must subclass me")
